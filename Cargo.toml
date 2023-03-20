@@ -16,10 +16,6 @@ crate-type = ["cdylib"]
 # so it's only enabled in release mode.
 lto = true
 
-[features]
-# If you uncomment this line, it will enable `wee_alloc`:
-#default = ["wee_alloc"]
-
 [dependencies]
 # The `wasm-bindgen` crate provides the bare minimum functionality needed
 # to interact with JavaScript.
@@ -39,7 +35,7 @@ wee_alloc = { version = "0.4.2", optional = true }
 # like the DOM.
 [dependencies.web-sys]
 version = "0.3.55"
-features = ["console"]
+features = ["console", "Window", "Document", "HtmlCanvasElement", "CanvasRenderingContext2d", "Element"]
 
 # These crates are used for running unit tests.
 [dev-dependencies]
