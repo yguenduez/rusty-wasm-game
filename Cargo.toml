@@ -20,6 +20,8 @@ lto = true
 # The `wasm-bindgen` crate provides the bare minimum functionality needed
 # to interact with JavaScript.
 wasm-bindgen = "0.2.78"
+rand = "0.8.4"
+getrandom = { version = "0.2.3", features = ["js"] }
 
 # console_error_panic_hook is a very useful crate during the development of
 # a WebAssembly application. It takes panics in Rust code and forwards them to the
