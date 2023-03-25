@@ -26,6 +26,7 @@ futures = "0.3.17"
 wasm-bindgen-futures = "0.4.28"
 anyhow = "1.0.70"
 serde = { version = "1", features = ["derive"] }
+async-trait = "0.1.67"
 
 # console_error_panic_hook is a very useful crate during the development of
 # a WebAssembly application. It takes panics in Rust code and forwards them to the
@@ -41,7 +42,7 @@ wee_alloc = { version = "0.4.2", optional = true }
 # like the DOM.
 [dependencies.web-sys]
 version = "0.3.55"
-features = ["console", "Window", "Document", "HtmlCanvasElement", "CanvasRenderingContext2d", "Element", "HtmlImageElement", "Response"]
+features = ["console", "Window", "Document", "HtmlCanvasElement", "CanvasRenderingContext2d", "Element", "HtmlImageElement", "Response", "Performance"]
 
 # These crates are used for running unit tests.
 [dev-dependencies]
