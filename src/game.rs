@@ -52,7 +52,7 @@ impl Game for WalkTheDog {
         }))
     }
 
-    fn update(&mut self) {
+    fn update(&mut self, keystate: &engine::KeyState) {
         if self.frame < 23 {
             self.frame += 1;
         } else {
