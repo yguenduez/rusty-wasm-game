@@ -79,6 +79,7 @@ impl Game for WalkTheDog {
         }
         if keystate.is_pressed("ArrowRight") {
             velocity.x += 3;
+            self.rhb.as_mut().unwrap().run_right();
         }
         if keystate.is_pressed("ArrowLeft") {
             velocity.x -= 3;
@@ -92,6 +93,7 @@ impl Game for WalkTheDog {
         } else {
             self.frame = 0;
         }
+        self.rhb.as_mut().unwrap().update();
     }
 
     fn draw(&self, renderer: &Renderer) {
@@ -173,6 +175,14 @@ impl RedHatBoy {
             },
         );
     }
+
+    fn update(&mut self) {
+        self.state_machine = self.state_machine.update();
+    }
+
+    fn run_right(&mut self) {
+        self.state_machine = self.state_machine.transition(Event::Run);
+    }
 }
 
 #[derive(Copy, Clone)]
@@ -205,6 +215,19 @@ impl RedHatBoyStateMachine {
             RedHatBoyStateMachine::Running(state) => &state.context(),
         }
     }
+
+    fn update(self) -> Self {
+        match self {
+            RedHatBoyStateMachine::Idle(mut state) => {
+                state.update();
+                RedHatBoyStateMachine::Idle(state)
+            }
+            RedHatBoyStateMachine::Running(mut state) => {
+                state.update();
+                RedHatBoyStateMachine::Running(state)
+            }
+        }
+    }
 }
 
 impl From<RedHatBoyState<Running>> for RedHatBoyStateMachine {
@@ -220,9 +243,13 @@ mod red_hat_boy_states {
     const IDLE_FRAME_NAME: &str = "Idle";
     const RUN_FRAME_NAME: &str = "Run";
 
+    const IDLE_FRAMES: u8 = 29;
+    const RUNNING_FRAMES: u8 = 23;
+    const RUNNING_SPEED: i16 = 3;
+
     #[derive(Copy, Clone)]
     pub struct RedHatBoyState<S> {
-        context: RedHatBoyContext,
+        pub context: RedHatBoyContext,
         _state: S,
     }
 
@@ -236,7 +263,7 @@ mod red_hat_boy_states {
         // Transition from Idle to Running!
         pub fn run(self) -> RedHatBoyState<Running> {
             RedHatBoyState {
-                context: self.context,
+                context: self.context.reset_frame().run_right(),
                 _state: Running {},
             }
         }
@@ -252,6 +279,10 @@ mod red_hat_boy_states {
             }
         }
 
+        pub fn update(&mut self) {
+            self.context = self.context.update(IDLE_FRAMES);
+        }
+
         pub fn frame_name(&self) -> &str {
             IDLE_FRAME_NAME
         }
@@ -261,6 +292,10 @@ mod red_hat_boy_states {
         pub fn frame_name(&self) -> &str {
             RUN_FRAME_NAME
         }
+
+        pub fn update(&mut self) {
+            self.context = self.context.update(RUNNING_FRAMES);
+        }
     }
 
     #[derive(Copy, Clone)]
@@ -268,6 +303,30 @@ mod red_hat_boy_states {
         pub frame: u8,
         pub position: Point,
         pub velocity: Point,
+    }
+
+    impl RedHatBoyContext {
+        pub fn update(mut self, frame_count: u8) -> Self {
+            if self.frame < frame_count {
+                self.frame += 1;
+            } else {
+                self.frame = 0;
+            }
+
+            self.position.x += self.velocity.x;
+            self.position.y += self.velocity.y;
+            self
+        }
+
+        fn reset_frame(mut self) -> Self {
+            self.frame = 0;
+            self
+        }
+
+        fn run_right(mut self) -> Self {
+            self.velocity.x += RUNNING_SPEED;
+            self
+        }
     }
 
     #[derive(Copy, Clone)]
