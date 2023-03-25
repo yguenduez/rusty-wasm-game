@@ -33,22 +33,12 @@ pub struct Point {
 }
 
 pub struct WalkTheDog {
-    image: Option<HtmlImageElement>,
-    sheet: Option<Sheet>,
-    frame: u8,
-    position: Point,
     rhb: Option<RedHatBoy>,
 }
 
 impl WalkTheDog {
     pub fn new() -> Self {
-        WalkTheDog {
-            image: None,
-            sheet: None,
-            frame: 0,
-            position: Point { x: 0, y: 0 },
-            rhb: None,
-        }
+        WalkTheDog { rhb: None }
     }
 }
 
@@ -58,10 +48,6 @@ impl Game for WalkTheDog {
         let sheet: Option<Sheet> = browser::fetch_json("rhb.json").await?.into_serde()?;
         let image = Some(engine::load_image("rhb.png").await?);
         Ok(Box::new(WalkTheDog {
-            image: image.clone(),
-            sheet: sheet.clone(),
-            frame: self.frame,
-            position: self.position,
             rhb: Some(RedHatBoy::new(
                 sheet.clone().ok_or_else(|| anyhow!("No Sheet Present"))?,
                 image.clone().ok_or_else(|| anyhow!("No Image Present"))?,
@@ -84,49 +70,15 @@ impl Game for WalkTheDog {
         if keystate.is_pressed("ArrowLeft") {
             velocity.x -= 3;
         }
-
-        self.position.x += velocity.x;
-        self.position.y += velocity.y;
-
-        if self.frame < 23 {
-            self.frame += 1;
-        } else {
-            self.frame = 0;
-        }
         self.rhb.as_mut().unwrap().update();
     }
 
     fn draw(&self, renderer: &Renderer) {
-        let current_sprite = (self.frame / 3) + 1;
-        let frame_name = format!("Run ({current_sprite}).png");
-        let sprite = self
-            .sheet
-            .as_ref()
-            .and_then(|sheet| sheet.frames.get(&frame_name))
-            .expect("Cell not found");
         renderer.clear(&engine::Rect {
             x: 0.0,
             y: 0.0,
             width: 600.0,
             height: 600.0,
-        });
-
-        self.image.as_ref().map(|image| {
-            renderer.draw_image(
-                image,
-                &engine::Rect {
-                    x: sprite.frame.x.into(),
-                    y: sprite.frame.y.into(),
-                    width: sprite.frame.w.into(),
-                    height: sprite.frame.h.into(),
-                },
-                &engine::Rect {
-                    x: self.position.x.into(),
-                    y: self.position.y.into(),
-                    width: sprite.frame.w.into(),
-                    height: sprite.frame.h.into(),
-                },
-            )
         });
         self.rhb.as_ref().unwrap().draw(renderer);
     }
