@@ -5,6 +5,8 @@ use async_trait::async_trait;
 use std::collections::HashMap;
 use web_sys::HtmlImageElement;
 
+use serde::Deserialize;
+
 #[derive(Deserialize)]
 struct SheetRect {
     x: i16,
@@ -75,7 +77,7 @@ impl Game for WalkTheDog {
 
         self.image.as_ref().map(|image| {
             renderer.draw_image(
-                &self.image,
+                image,
                 &engine::Rect {
                     x: sprite.frame.x.into(),
                     y: sprite.frame.y.into(),
