@@ -54,63 +54,6 @@ impl WalkTheDog {
     }
 }
 
-#[async_trait(? Send)]
-impl Game for WalkTheDog {
-    async fn initialize(&self) -> Result<Box<dyn Game>> {
-        match self {
-            WalkTheDog::Loading => {
-                let json = browser::fetch_json("rhb.json").await?;
-                let rhb = RedHatBoy::new(json.into_serde()?, engine::load_image("rhb.png").await?);
-                let background = engine::load_image("BG.png").await?;
-                let stone = engine::load_image("Stone.png").await?;
-                Ok(Box::new(WalkTheDog::Loaded(Walk {
-                    boy: rhb,
-                    background: Image::new(background, Point { x: 0, y: 0 }),
-                    stone: Image::new(stone, Point { x: 150, y: 546 }),
-                })))
-            }
-            WalkTheDog::Loaded(_) => Err(anyhow!("Error: Game is already initialized!")),
-        }
-    }
-
-    fn update(&mut self, keystate: &engine::KeyState) {
-        if let WalkTheDog::Loaded(walk) = self {
-            let mut velocity = Point { x: 0, y: 0 };
-            if keystate.is_pressed("ArrowDown") {
-                walk.boy.slide();
-            }
-            if keystate.is_pressed("ArrowUp") {
-                velocity.y -= 3;
-            }
-            if keystate.is_pressed("ArrowRight") {
-                velocity.x += 3;
-                walk.boy.run_right();
-            }
-            if keystate.is_pressed("ArrowLeft") {
-                velocity.x -= 3;
-            }
-            if keystate.is_pressed("Space") {
-                walk.boy.jump();
-            }
-            walk.boy.update();
-        }
-    }
-
-    fn draw(&self, renderer: &Renderer) {
-        renderer.clear(&engine::Rect {
-            x: 0.0,
-            y: 0.0,
-            width: 600.0,
-            height: 600.0,
-        });
-        if let WalkTheDog::Loaded(walk) = self {
-            walk.background.draw(renderer);
-            walk.boy.draw(renderer);
-            walk.stone.draw(renderer);
-        }
-    }
-}
-
 struct RedHatBoy {
     state_machine: RedHatBoyStateMachine,
     sprite_sheet: Sheet,
@@ -458,4 +401,61 @@ mod red_hat_boy_states {
 
     #[derive(Copy, Clone)]
     pub struct Jumping;
+}
+
+#[async_trait(? Send)]
+impl Game for WalkTheDog {
+    async fn initialize(&self) -> Result<Box<dyn Game>> {
+        match self {
+            WalkTheDog::Loading => {
+                let json = browser::fetch_json("rhb.json").await?;
+                let rhb = RedHatBoy::new(json.into_serde()?, engine::load_image("rhb.png").await?);
+                let background = engine::load_image("BG.png").await?;
+                let stone = engine::load_image("Stone.png").await?;
+                Ok(Box::new(WalkTheDog::Loaded(Walk {
+                    boy: rhb,
+                    background: Image::new(background, Point { x: 0, y: 0 }),
+                    stone: Image::new(stone, Point { x: 150, y: 546 }),
+                })))
+            }
+            WalkTheDog::Loaded(_) => Err(anyhow!("Error: Game is already initialized!")),
+        }
+    }
+
+    fn update(&mut self, keystate: &engine::KeyState) {
+        if let WalkTheDog::Loaded(walk) = self {
+            let mut velocity = Point { x: 0, y: 0 };
+            if keystate.is_pressed("ArrowDown") {
+                walk.boy.slide();
+            }
+            if keystate.is_pressed("ArrowUp") {
+                velocity.y -= 3;
+            }
+            if keystate.is_pressed("ArrowRight") {
+                velocity.x += 3;
+                walk.boy.run_right();
+            }
+            if keystate.is_pressed("ArrowLeft") {
+                velocity.x -= 3;
+            }
+            if keystate.is_pressed("Space") {
+                walk.boy.jump();
+            }
+            walk.boy.update();
+        }
+    }
+
+    fn draw(&self, renderer: &Renderer) {
+        renderer.clear(&engine::Rect {
+            x: 0.0,
+            y: 0.0,
+            width: 600.0,
+            height: 600.0,
+        });
+        if let WalkTheDog::Loaded(walk) = self {
+            walk.background.draw(renderer);
+            walk.boy.draw(renderer);
+            walk.stone.draw(renderer);
+        }
+    }
 }
