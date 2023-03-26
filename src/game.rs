@@ -6,7 +6,8 @@ use std::collections::HashMap;
 use web_sys::HtmlImageElement;
 
 use crate::game::red_hat_boy_states::{
-    Idle, RedHatBoyContext, RedHatBoyState, Running, Sliding, SlidingEndState, SLIDING_FRAMES,
+    Idle, Jumping, JumpingEndState, RedHatBoyContext, RedHatBoyState, Running, Sliding,
+    SlidingEndState, SLIDING_FRAMES,
 };
 use serde::Deserialize;
 
@@ -73,6 +74,9 @@ impl Game for WalkTheDog {
             }
             if keystate.is_pressed("ArrowLeft") {
                 velocity.x -= 3;
+            }
+            if keystate.is_pressed("Space") {
+                rhb.jump();
             }
             rhb.update();
         }
@@ -145,6 +149,9 @@ impl RedHatBoy {
     fn slide(&mut self) {
         self.state_machine = self.state_machine.transition(Event::Slide);
     }
+    fn jump(&mut self) {
+        self.state_machine = self.state_machine.transition(Event::Jump);
+    }
 }
 
 #[derive(Copy, Clone)]
@@ -152,11 +159,13 @@ enum RedHatBoyStateMachine {
     Idle(RedHatBoyState<Idle>),
     Running(RedHatBoyState<Running>),
     Sliding(RedHatBoyState<Sliding>),
+    Jumping(RedHatBoyState<Jumping>),
 }
 
 pub enum Event {
     Run,
     Slide,
+    Jump,
     Update,
 }
 
@@ -165,9 +174,11 @@ impl RedHatBoyStateMachine {
         match (self, event) {
             (RedHatBoyStateMachine::Idle(state), Event::Run) => state.run().into(),
             (RedHatBoyStateMachine::Running(state), Event::Slide) => state.slide().into(),
+            (RedHatBoyStateMachine::Running(mut state), Event::Jump) => state.jump().into(),
             (RedHatBoyStateMachine::Idle(mut state), Event::Update) => state.update().into(),
             (RedHatBoyStateMachine::Running(mut state), Event::Update) => state.update().into(),
             (RedHatBoyStateMachine::Sliding(mut state), Event::Update) => state.update().into(),
+            (RedHatBoyStateMachine::Jumping(mut state), Event::Update) => state.update().into(),
             _ => self,
         }
     }
@@ -177,6 +188,7 @@ impl RedHatBoyStateMachine {
             RedHatBoyStateMachine::Idle(state) => state.frame_name(),
             RedHatBoyStateMachine::Running(state) => state.frame_name(),
             RedHatBoyStateMachine::Sliding(state) => state.frame_name(),
+            RedHatBoyStateMachine::Jumping(state) => state.frame_name(),
         }
     }
     fn context(&self) -> &RedHatBoyContext {
@@ -184,6 +196,7 @@ impl RedHatBoyStateMachine {
             RedHatBoyStateMachine::Idle(state) => &state.context(),
             RedHatBoyStateMachine::Running(state) => &state.context(),
             RedHatBoyStateMachine::Sliding(state) => &state.context(),
+            RedHatBoyStateMachine::Jumping(state) => &state.context(),
         }
     }
 
@@ -210,11 +223,26 @@ impl From<RedHatBoyState<Sliding>> for RedHatBoyStateMachine {
     }
 }
 
+impl From<RedHatBoyState<Jumping>> for RedHatBoyStateMachine {
+    fn from(state: RedHatBoyState<Jumping>) -> Self {
+        RedHatBoyStateMachine::Jumping(state)
+    }
+}
+
 impl From<SlidingEndState> for RedHatBoyStateMachine {
     fn from(end_state: SlidingEndState) -> Self {
         match end_state {
             SlidingEndState::Complete(running_state) => running_state.into(),
             SlidingEndState::Sliding(sliding_state) => sliding_state.into(),
+        }
+    }
+}
+
+impl From<JumpingEndState> for RedHatBoyStateMachine {
+    fn from(end_state: JumpingEndState) -> Self {
+        match end_state {
+            JumpingEndState::Complete(running_state) => running_state.into(),
+            JumpingEndState::Jumping(jumping_state) => jumping_state.into(),
         }
     }
 }
@@ -227,11 +255,16 @@ mod red_hat_boy_states {
     const IDLE_FRAME_NAME: &str = "Idle";
     const RUN_FRAME_NAME: &str = "Run";
     const SLIDING_FRAME_NAME: &str = "Slide";
+    const JUMPING_FRAME_NAME: &str = "Jump";
 
     const IDLE_FRAMES: u8 = 29;
     const RUNNING_FRAMES: u8 = 23;
     pub const SLIDING_FRAMES: u8 = 15;
+    const JUMPING_FRAMES: u8 = 35;
     const RUNNING_SPEED: i16 = 3;
+    const JUMP_SPEED: i16 = -25;
+
+    const GRAVITY: i16 = 1;
 
     #[derive(Copy, Clone)]
     pub struct RedHatBoyState<S> {
@@ -291,6 +324,13 @@ mod red_hat_boy_states {
                 _state: Sliding {},
             }
         }
+
+        pub fn jump(self) -> RedHatBoyState<Jumping> {
+            RedHatBoyState {
+                context: self.context.set_vertical_velocity(JUMP_SPEED).reset_frame(),
+                _state: Jumping {},
+            }
+        }
     }
 
     pub enum SlidingEndState {
@@ -318,6 +358,33 @@ mod red_hat_boy_states {
         }
     }
 
+    pub enum JumpingEndState {
+        Complete(RedHatBoyState<Running>),
+        Jumping(RedHatBoyState<Jumping>),
+    }
+
+    impl RedHatBoyState<Jumping> {
+        pub fn update(mut self) -> JumpingEndState {
+            self.context = self.context.update(JUMPING_FRAMES);
+            if self.context.position.y >= FLOOR {
+                JumpingEndState::Complete(self.land())
+            } else {
+                JumpingEndState::Jumping(self)
+            }
+        }
+
+        pub fn frame_name(&self) -> &str {
+            JUMPING_FRAME_NAME
+        }
+
+        pub fn land(mut self) -> RedHatBoyState<Running> {
+            RedHatBoyState {
+                context: self.context.reset_frame(),
+                _state: Running {},
+            }
+        }
+    }
+
     #[derive(Copy, Clone)]
     pub struct RedHatBoyContext {
         pub frame: u8,
@@ -335,6 +402,11 @@ mod red_hat_boy_states {
 
             self.position.x += self.velocity.x;
             self.position.y += self.velocity.y;
+
+            self.velocity.y += GRAVITY;
+
+            self.position.y = self.position.y.min(FLOOR);
+
             self
         }
 
@@ -347,6 +419,11 @@ mod red_hat_boy_states {
             self.velocity.x += RUNNING_SPEED;
             self
         }
+
+        fn set_vertical_velocity(mut self, speed: i16) -> Self {
+            self.velocity.y = speed;
+            self
+        }
     }
 
     #[derive(Copy, Clone)]
@@ -357,4 +434,7 @@ mod red_hat_boy_states {
 
     #[derive(Copy, Clone)]
     pub struct Sliding;
+
+    #[derive(Copy, Clone)]
+    pub struct Jumping;
 }
