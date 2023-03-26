@@ -20,8 +20,10 @@ struct SheetRect {
 }
 
 #[derive(Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
 struct Cell {
     frame: SheetRect,
+    pub sprite_source_size: SheetRect,
 }
 
 #[derive(Deserialize, Clone)]
@@ -124,6 +126,15 @@ impl RedHatBoy {
         }
     }
 
+    fn destination_box(&self, cell: &Cell) -> Rect {
+        Rect {
+            x: (self.state_machine.context().position.x + cell.sprite_source_size.x as i16).into(),
+            y: (self.state_machine.context().position.y + cell.sprite_source_size.y as i16).into(),
+            width: cell.frame.w.into(),
+            height: cell.frame.h.into(),
+        }
+    }
+
     fn draw(&self, renderer: &Renderer) {
         let frame_name = format!(
             "{} ({}).png",
@@ -144,13 +155,9 @@ impl RedHatBoy {
                 width: sprite.frame.w.into(),
                 height: sprite.frame.h.into(),
             },
-            &Rect {
-                x: self.state_machine.context().position.x.into(),
-                y: self.state_machine.context().position.y.into(),
-                width: sprite.frame.w.into(),
-                height: sprite.frame.h.into(),
-            },
+            &self.destination_box(&sprite),
         );
+        renderer.draw_rect(&self.destination_box(&sprite))
     }
 
     fn update(&mut self) {
