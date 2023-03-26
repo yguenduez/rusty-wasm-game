@@ -8,11 +8,27 @@ use std::sync::Mutex;
 use web_sys::{CanvasRenderingContext2d, HtmlImageElement};
 
 use crate::browser::LoopClosure;
+use crate::game::Point;
 use anyhow::{anyhow, Result};
 use futures::channel::mpsc::{unbounded, TryRecvError, UnboundedReceiver};
-use futures::Sink;
+use futures::{select, Sink};
 use wasm_bindgen::closure::Closure;
 use wasm_bindgen::{JsCast, JsValue};
+
+pub struct Image {
+    element: HtmlImageElement,
+    position: Point,
+}
+
+impl Image {
+    pub fn new(element: HtmlImageElement, position: Point) -> Self {
+        Self { element, position }
+    }
+
+    pub fn draw(&self, renderer: &Renderer) {
+        renderer.draw_entire_image(&self.element, &self.position)
+    }
+}
 
 pub async fn load_image(source: &str) -> Result<HtmlImageElement> {
     let image = browser::new_image()?;
@@ -124,6 +140,12 @@ impl Renderer {
                 destination.width.into(),
                 destination.height.into(),
             )
+            .expect("Drawing is throwing exceptions! Unrecoverable error.");
+    }
+
+    pub fn draw_entire_image(&self, image: &HtmlImageElement, position: &Point) {
+        self.context
+            .draw_image_with_html_image_element(image, position.x.into(), position.y.into())
             .expect("Drawing is throwing exceptions! Unrecoverable error.");
     }
 }
