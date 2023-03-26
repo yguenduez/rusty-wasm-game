@@ -69,27 +69,32 @@ impl RedHatBoy {
         }
     }
 
-    fn destination_box(&self, cell: &Cell) -> Rect {
+    fn frame_name(&self) -> String {
+        format!(
+            "{} ({}).png",
+            self.state_machine.frame_name(),
+            (self.state_machine.context().frame / 3) + 1
+        )
+    }
+
+    fn current_sprite(&self) -> Option<&Cell> {
+        self.sprite_sheet.frames.get(&self.frame_name())
+    }
+
+    fn bounding_box(&self) -> Rect {
+        let sprite = self.current_sprite().expect("Cell not found");
         Rect {
-            x: (self.state_machine.context().position.x + cell.sprite_source_size.x as i16).into(),
-            y: (self.state_machine.context().position.y + cell.sprite_source_size.y as i16).into(),
-            width: cell.frame.w.into(),
-            height: cell.frame.h.into(),
+            x: (self.state_machine.context().position.x + sprite.sprite_source_size.x as i16)
+                .into(),
+            y: (self.state_machine.context().position.y + sprite.sprite_source_size.y as i16)
+                .into(),
+            width: sprite.frame.w.into(),
+            height: sprite.frame.h.into(),
         }
     }
 
     fn draw(&self, renderer: &Renderer) {
-        let frame_name = format!(
-            "{} ({}).png",
-            self.state_machine.frame_name(),
-            (self.state_machine.context().frame / 3) + 1
-        );
-
-        let sprite = self
-            .sprite_sheet
-            .frames
-            .get(&frame_name)
-            .expect("Cell not found");
+        let sprite = self.current_sprite().expect("Cell not found");
         renderer.draw_image(
             &self.image,
             &Rect {
@@ -98,9 +103,9 @@ impl RedHatBoy {
                 width: sprite.frame.w.into(),
                 height: sprite.frame.h.into(),
             },
-            &self.destination_box(&sprite),
+            &self.bounding_box(),
         );
-        renderer.draw_rect(&self.destination_box(&sprite))
+        renderer.draw_rect(&self.bounding_box())
     }
 
     fn update(&mut self) {
@@ -214,7 +219,8 @@ impl From<JumpingEndState> for RedHatBoyStateMachine {
 mod red_hat_boy_states {
     use crate::game::Point;
 
-    const FLOOR: i16 = 475;
+    const FLOOR: i16 = 479;
+    const STARTING_POINT: i16 = -20;
 
     const IDLE_FRAME_NAME: &str = "Idle";
     const RUN_FRAME_NAME: &str = "Run";
@@ -255,7 +261,10 @@ mod red_hat_boy_states {
             RedHatBoyState {
                 context: RedHatBoyContext {
                     frame: 0,
-                    position: Point { x: 0, y: FLOOR },
+                    position: Point {
+                        x: STARTING_POINT,
+                        y: FLOOR,
+                    },
                     velocity: Point { x: 0, y: 0 },
                 },
                 _state: Idle {},
