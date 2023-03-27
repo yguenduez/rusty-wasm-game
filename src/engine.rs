@@ -8,11 +8,42 @@ use std::sync::Mutex;
 use web_sys::{CanvasRenderingContext2d, HtmlImageElement};
 
 use crate::browser::LoopClosure;
+use crate::game::Point;
 use anyhow::{anyhow, Result};
 use futures::channel::mpsc::{unbounded, TryRecvError, UnboundedReceiver};
-use futures::Sink;
+use futures::{select, Sink};
 use wasm_bindgen::closure::Closure;
 use wasm_bindgen::{JsCast, JsValue};
+
+pub struct Image {
+    element: HtmlImageElement,
+    position: Point,
+    bounding_box: Rect,
+}
+
+impl Image {
+    pub fn new(element: HtmlImageElement, position: Point) -> Self {
+        let bounding_box = Rect {
+            x: position.x.into(),
+            y: position.y.into(),
+            width: element.width() as f32,
+            height: element.height() as f32,
+        };
+        Self {
+            element,
+            position,
+            bounding_box,
+        }
+    }
+
+    pub fn bounding_box(&self) -> &Rect {
+        &self.bounding_box
+    }
+
+    pub fn draw(&self, renderer: &Renderer) {
+        renderer.draw_entire_image(&self.element, &self.position)
+    }
+}
 
 pub async fn load_image(source: &str) -> Result<HtmlImageElement> {
     let image = browser::new_image()?;
@@ -101,6 +132,15 @@ pub struct Rect {
     pub height: f32,
 }
 
+impl Rect {
+    pub fn intersects(&self, rect: &Rect) -> bool {
+        self.x < (rect.x + rect.width)
+            && self.x + self.width > rect.x
+            && self.y < (rect.y + rect.height)
+            && self.y + self.height > rect.y
+    }
+}
+
 impl Renderer {
     pub fn clear(&self, rect: &Rect) {
         self.context.clear_rect(
@@ -125,6 +165,24 @@ impl Renderer {
                 destination.height.into(),
             )
             .expect("Drawing is throwing exceptions! Unrecoverable error.");
+    }
+
+    pub fn draw_entire_image(&self, image: &HtmlImageElement, position: &Point) {
+        self.context
+            .draw_image_with_html_image_element(image, position.x.into(), position.y.into())
+            .expect("Drawing is throwing exceptions! Unrecoverable error.");
+    }
+
+    pub fn draw_rect(&self, bounding_box: &Rect) {
+        self.context.set_stroke_style(&JsValue::from_str("#FF0000"));
+        self.context.begin_path();
+        self.context.rect(
+            bounding_box.x.into(),
+            bounding_box.y.into(),
+            bounding_box.width.into(),
+            bounding_box.height.into(),
+        );
+        self.context.stroke();
     }
 }
 
