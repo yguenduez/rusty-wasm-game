@@ -338,6 +338,7 @@ mod red_hat_boy_states {
 
     const RUNNING_SPEED: i16 = 3;
     const JUMP_SPEED: i16 = -25;
+    const MAX_VELOCITY: i16 = 20;
 
     const GRAVITY: i16 = 1;
 
@@ -540,6 +541,7 @@ mod red_hat_boy_states {
             self.position.y += self.velocity.y;
 
             self.velocity.y += GRAVITY;
+            self.velocity.y = self.velocity.y.min(MAX_VELOCITY);
 
             self.position.y = self.position.y.min(FLOOR);
 
