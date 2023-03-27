@@ -96,6 +96,14 @@ impl RedHatBoy {
         }
     }
 
+    fn velocity_y(&self) -> i16 {
+        self.state_machine.context().velocity.y
+    }
+
+    fn pos_y(&self) -> i16 {
+        self.state_machine.context().position.y
+    }
+
     fn draw(&self, renderer: &Renderer) {
         let sprite = self.current_sprite().expect("Cell not found");
         renderer.draw_image(
@@ -655,7 +663,13 @@ impl Game for WalkTheDog {
                 .bounding_box()
                 .intersects(&walk.platform.bounding_box())
             {
-                walk.boy.land_on(walk.platform.bounding_box().y);
+                let is_descensing_and_hitting_from_above =
+                    walk.boy.velocity_y() > 0 && walk.boy.pos_y() < walk.platform.position.y;
+                if is_descensing_and_hitting_from_above {
+                    walk.boy.land_on(walk.platform.bounding_box().y);
+                } else {
+                    walk.boy.knock_out();
+                }
             }
 
             if walk
