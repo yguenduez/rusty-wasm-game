@@ -183,6 +183,7 @@ impl RedHatBoyStateMachine {
             (RedHatBoyStateMachine::Running(state), Event::Land(position)) => {
                 state.land_on(position).into()
             }
+            (RedHatBoyStateMachine::Jumping(state), Event::KnockOut) => state.knock_out().into(),
             (RedHatBoyStateMachine::Jumping(state), Event::Land(position)) => {
                 state.land_on(position).into()
             }
