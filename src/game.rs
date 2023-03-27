@@ -194,11 +194,16 @@ impl RedHatBoyStateMachine {
             (RedHatBoyStateMachine::Sliding(state), Event::Land(position)) => {
                 state.land_on(position).into()
             }
+            (RedHatBoyStateMachine::KnockedOut(state), Event::Land(position)) => {
+                state.land_on(position).into()
+            }
+
             (RedHatBoyStateMachine::Idle(mut state), Event::Update) => state.update().into(),
             (RedHatBoyStateMachine::Running(mut state), Event::Update) => state.update().into(),
             (RedHatBoyStateMachine::Sliding(mut state), Event::Update) => state.update().into(),
             (RedHatBoyStateMachine::Jumping(mut state), Event::Update) => state.update().into(),
             (RedHatBoyStateMachine::Falling(mut state), Event::Update) => state.update().into(),
+            (RedHatBoyStateMachine::KnockedOut(mut state), Event::Update) => state.update().into(),
             _ => self,
         }
     }
@@ -575,6 +580,18 @@ mod red_hat_boy_states {
         pub fn frame_name(&self) -> &str {
             FALLING_FRAME_NAME
         }
+
+        pub fn update(mut self) -> Self {
+            self.context = self.context.apply_velocity();
+            self
+        }
+
+        pub fn land_on(self, position: f32) -> Self {
+            RedHatBoyState {
+                context: self.context.set_on(position as i16),
+                _state: KnockedOut {},
+            }
+        }
     }
 
     #[derive(Copy, Clone)]
@@ -592,14 +609,15 @@ mod red_hat_boy_states {
                 self.frame = 0;
             }
 
+            self.apply_velocity()
+        }
+
+        fn apply_velocity(mut self) -> Self {
             self.position.x += self.velocity.x;
             self.position.y += self.velocity.y;
-
             self.velocity.y += GRAVITY;
             self.velocity.y = self.velocity.y.min(MAX_VELOCITY);
-
             self.position.y = self.position.y.min(FLOOR);
-
             self
         }
 
