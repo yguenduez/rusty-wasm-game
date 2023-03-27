@@ -384,7 +384,7 @@ mod red_hat_boy_states {
     const JUMPING_FRAMES: u8 = 35;
     const FALLING_FRAMES: u8 = 29; // 10 'Dead' frames in the sheet, * 3 - 1.
 
-    const RUNNING_SPEED: i16 = 3;
+    const RUNNING_SPEED: i16 = 4;
     const JUMP_SPEED: i16 = -25;
     const MAX_VELOCITY: i16 = 20;
 
@@ -648,6 +648,10 @@ mod red_hat_boy_states {
     pub struct KnockedOut;
 }
 
+const LOW_PLATFORM: i16 = 420;
+const HIGH_PLATFORM: i16 = 375;
+const FIRST_PLATFORM: i16 = 370;
+
 #[async_trait(? Send)]
 impl Game for WalkTheDog {
     async fn initialize(&self) -> Result<Box<dyn Game>> {
@@ -661,7 +665,10 @@ impl Game for WalkTheDog {
                 let platform = Platform::new(
                     platform_sheet.into_serde::<Sheet>()?,
                     engine::load_image("tiles.png").await?,
-                    Point { x: 200, y: 400 },
+                    Point {
+                        x: FIRST_PLATFORM,
+                        y: LOW_PLATFORM,
+                    },
                 );
                 Ok(Box::new(WalkTheDog::Loaded(Walk {
                     boy: rhb,
