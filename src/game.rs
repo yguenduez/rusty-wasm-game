@@ -51,6 +51,12 @@ pub struct Walk {
     platform: Platform,
 }
 
+impl Walk {
+    fn velocity(&self) -> i16 {
+        -self.boy.walking_speed()
+    }
+}
+
 impl WalkTheDog {
     pub fn new() -> Self {
         WalkTheDog::Loading
@@ -70,6 +76,10 @@ impl RedHatBoy {
             sprite_sheet: sheet,
             image,
         }
+    }
+
+    fn walking_speed(&self) -> i16 {
+        self.state_machine.context().velocity.x
     }
 
     fn frame_name(&self) -> String {
@@ -613,7 +623,6 @@ mod red_hat_boy_states {
         }
 
         fn apply_velocity(mut self) -> Self {
-            self.position.x += self.velocity.x;
             self.position.y += self.velocity.y;
             self.velocity.y += GRAVITY;
             self.velocity.y = self.velocity.y.min(MAX_VELOCITY);
@@ -686,7 +695,7 @@ impl Game for WalkTheDog {
                     engine::load_image("tiles.png").await?,
                     Point {
                         x: FIRST_PLATFORM,
-                        y: LOW_PLATFORM,
+                        y: HIGH_PLATFORM,
                     },
                 );
                 Ok(Box::new(WalkTheDog::Loaded(Walk {
@@ -720,6 +729,10 @@ impl Game for WalkTheDog {
                 walk.boy.jump();
             }
             walk.boy.update();
+
+            walk.platform.position.x += walk.velocity();
+            walk.stone.move_horizontally(walk.velocity());
+            walk.background.move_horizontally(walk.velocity());
 
             walk.platform
                 .bounding_boxes()
