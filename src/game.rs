@@ -7,7 +7,7 @@ use web_sys::HtmlImageElement;
 
 use crate::game::red_hat_boy_states::{
     Falling, FallingState, Idle, Jumping, JumpingEndState, KnockedOut, RedHatBoyContext,
-    RedHatBoyState, Running, Sliding, SlidingEndState, SLIDING_FRAMES,
+    RedHatBoyState, Running, Sliding, SlidingEndState,
 };
 use serde::Deserialize;
 
@@ -96,24 +96,25 @@ impl RedHatBoy {
 
     fn destination_box(&self) -> Rect {
         let sprite = self.current_sprite().expect("Cell not found");
-        Rect {
-            x: (self.state_machine.context().position.x + sprite.sprite_source_size.x).into(),
-            y: (self.state_machine.context().position.y + sprite.sprite_source_size.y).into(),
-            width: sprite.frame.w.into(),
-            height: sprite.frame.h.into(),
-        }
+        Rect::new_from_x_y(
+            self.state_machine.context().position.x + sprite.sprite_source_size.x,
+            self.state_machine.context().position.y + sprite.sprite_source_size.y,
+            sprite.frame.w.into(),
+            sprite.frame.h.into(),
+        )
     }
 
     fn bounding_box(&self) -> Rect {
         const X_OFFSET: i16 = 18;
         const Y_OFFSET: i16 = 14;
         const WIDTH_OFFSET: i16 = 28;
-        let mut bounding_box = self.destination_box();
-        bounding_box.x += X_OFFSET;
-        bounding_box.width -= WIDTH_OFFSET;
-        bounding_box.y += Y_OFFSET;
-        bounding_box.height -= Y_OFFSET;
-        bounding_box
+        let bounding_box = self.destination_box();
+        Rect::new_from_x_y(
+            bounding_box.x() + X_OFFSET,
+            bounding_box.y() + Y_OFFSET,
+            bounding_box.width - WIDTH_OFFSET,
+            bounding_box.height - Y_OFFSET,
+        )
     }
 
     fn velocity_y(&self) -> i16 {
@@ -128,12 +129,12 @@ impl RedHatBoy {
         let sprite = self.current_sprite().expect("Cell not found");
         renderer.draw_image(
             &self.image,
-            &Rect {
-                x: sprite.frame.x.into(),
-                y: sprite.frame.y.into(),
-                width: sprite.frame.w.into(),
-                height: sprite.frame.h.into(),
-            },
+            &Rect::new_from_x_y(
+                sprite.frame.x,
+                sprite.frame.y,
+                sprite.frame.w.into(),
+                sprite.frame.h.into(),
+            ),
             &self.destination_box(),
         );
         renderer.draw_rect(&self.bounding_box())
@@ -186,7 +187,7 @@ impl RedHatBoyStateMachine {
         match (self, event) {
             (RedHatBoyStateMachine::Idle(state), Event::Run) => state.run().into(),
             (RedHatBoyStateMachine::Running(state), Event::Slide) => state.slide().into(),
-            (RedHatBoyStateMachine::Running(mut state), Event::Jump) => state.jump().into(),
+            (RedHatBoyStateMachine::Running(state), Event::Jump) => state.jump().into(),
             (RedHatBoyStateMachine::Running(state), Event::KnockOut) => state.knock_out().into(),
             (RedHatBoyStateMachine::Running(state), Event::Land(position)) => {
                 state.land_on(position).into()
@@ -206,12 +207,12 @@ impl RedHatBoyStateMachine {
                 state.land_on(position).into()
             }
 
-            (RedHatBoyStateMachine::Idle(mut state), Event::Update) => state.update().into(),
-            (RedHatBoyStateMachine::Running(mut state), Event::Update) => state.update().into(),
-            (RedHatBoyStateMachine::Sliding(mut state), Event::Update) => state.update().into(),
-            (RedHatBoyStateMachine::Jumping(mut state), Event::Update) => state.update().into(),
-            (RedHatBoyStateMachine::Falling(mut state), Event::Update) => state.update().into(),
-            (RedHatBoyStateMachine::KnockedOut(mut state), Event::Update) => state.update().into(),
+            (RedHatBoyStateMachine::Idle(state), Event::Update) => state.update().into(),
+            (RedHatBoyStateMachine::Running(state), Event::Update) => state.update().into(),
+            (RedHatBoyStateMachine::Sliding(state), Event::Update) => state.update().into(),
+            (RedHatBoyStateMachine::Jumping(state), Event::Update) => state.update().into(),
+            (RedHatBoyStateMachine::Falling(state), Event::Update) => state.update().into(),
+            (RedHatBoyStateMachine::KnockedOut(state), Event::Update) => state.update().into(),
             _ => self,
         }
     }
@@ -328,12 +329,12 @@ impl Platform {
                 .expect("13.png does not exist");
             renderer.draw_image(
                 &self.image,
-                &Rect {
-                    x: platform.frame.x.into(),
-                    y: platform.frame.y.into(),
-                    width: (platform.frame.w * 3).into(),
-                    height: platform.frame.h.into(),
-                },
+                &Rect::new_from_x_y(
+                    platform.frame.x.into(),
+                    platform.frame.y.into(),
+                    (platform.frame.w * 3).into(),
+                    platform.frame.h.into(),
+                ),
                 &self.destination_box(),
             )
         }
@@ -345,36 +346,36 @@ impl Platform {
             .frames
             .get("13.png")
             .expect("13.png does not exist");
-        Rect {
-            x: self.position.x.into(),
-            y: self.position.y.into(),
-            width: (platform.frame.w * 3).into(),
-            height: platform.frame.h.into(),
-        }
+        Rect::new_from_x_y(
+            self.position.x.into(),
+            self.position.y.into(),
+            (platform.frame.w * 3).into(),
+            platform.frame.h.into(),
+        )
     }
 
     fn bounding_boxes(&self) -> Vec<Rect> {
         const X_OFFSET: i16 = 60;
         const END_HEIGHT: i16 = 54;
         let destination_box = self.destination_box();
-        let bounding_box_one = Rect {
-            x: destination_box.x,
-            y: destination_box.y,
-            width: X_OFFSET,
-            height: END_HEIGHT,
-        };
-        let bounding_box_two = Rect {
-            x: destination_box.x + X_OFFSET,
-            y: destination_box.y,
-            width: destination_box.width - (X_OFFSET * 2),
-            height: destination_box.height,
-        };
-        let bounding_box_three = Rect {
-            x: destination_box.x + destination_box.width - X_OFFSET,
-            y: destination_box.y,
-            width: X_OFFSET,
-            height: END_HEIGHT,
-        };
+        let bounding_box_one = Rect::new_from_x_y(
+            destination_box.x(),
+            destination_box.y(),
+            X_OFFSET,
+            END_HEIGHT,
+        );
+        let bounding_box_two = Rect::new_from_x_y(
+            destination_box.x() + X_OFFSET,
+            destination_box.y(),
+            destination_box.width - (X_OFFSET * 2),
+            destination_box.height,
+        );
+        let bounding_box_three = Rect::new_from_x_y(
+            destination_box.x() + destination_box.width - X_OFFSET,
+            destination_box.y(),
+            X_OFFSET,
+            END_HEIGHT,
+        );
         vec![bounding_box_one, bounding_box_two, bounding_box_three]
     }
 }
@@ -576,7 +577,7 @@ mod red_hat_boy_states {
         pub fn frame_name(&self) -> &str {
             FALLING_FRAME_NAME
         }
-        pub fn dead(mut self) -> RedHatBoyState<KnockedOut> {
+        pub fn dead(self) -> RedHatBoyState<KnockedOut> {
             RedHatBoyState {
                 context: self.context,
                 _state: KnockedOut {},
@@ -674,7 +675,6 @@ mod red_hat_boy_states {
     pub struct KnockedOut;
 }
 
-const LOW_PLATFORM: i16 = 420;
 const HIGH_PLATFORM: i16 = 375;
 const FIRST_PLATFORM: i16 = 370;
 
@@ -760,7 +760,7 @@ impl Game for WalkTheDog {
                         let is_descensing_and_hitting_from_above = walk.boy.velocity_y() > 0
                             && walk.boy.pos_y() < walk.platform.position.y;
                         if is_descensing_and_hitting_from_above {
-                            walk.boy.land_on(bounding_box.y);
+                            walk.boy.land_on(bounding_box.y());
                         } else {
                             walk.boy.knock_out();
                         }
@@ -778,12 +778,7 @@ impl Game for WalkTheDog {
     }
 
     fn draw(&self, renderer: &Renderer) {
-        renderer.clear(&engine::Rect {
-            x: 0,
-            y: 0,
-            width: 600,
-            height: 600,
-        });
+        renderer.clear(&engine::Rect::new_from_x_y(0, 0, 600, 600));
         if let WalkTheDog::Loaded(walk) = self {
             walk.backgrounds.iter().for_each(|b| b.draw(renderer));
             walk.boy.draw(renderer);
