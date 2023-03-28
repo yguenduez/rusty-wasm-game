@@ -46,7 +46,7 @@ pub enum WalkTheDog {
 
 pub struct Walk {
     boy: RedHatBoy,
-    background: Image,
+    backgrounds: [Image; 2],
     stone: Image,
     platform: Platform,
 }
@@ -698,9 +698,19 @@ impl Game for WalkTheDog {
                         y: HIGH_PLATFORM,
                     },
                 );
+                let background_width = background.width() as i16;
                 Ok(Box::new(WalkTheDog::Loaded(Walk {
                     boy: rhb,
-                    background: Image::new(background, Point { x: 0, y: 0 }),
+                    backgrounds: [
+                        Image::new(background.clone(), Point { x: 0, y: 0 }),
+                        Image::new(
+                            background,
+                            Point {
+                                x: background_width,
+                                y: 0,
+                            },
+                        ),
+                    ],
                     stone: Image::new(stone, Point { x: 150, y: 546 }),
                     platform,
                 })))
@@ -732,7 +742,17 @@ impl Game for WalkTheDog {
 
             walk.platform.position.x += walk.velocity();
             walk.stone.move_horizontally(walk.velocity());
-            walk.background.move_horizontally(walk.velocity());
+
+            let velocity = walk.velocity();
+            let [first_background, second_background] = &mut walk.backgrounds;
+            first_background.move_horizontally(velocity);
+            second_background.move_horizontally(velocity);
+            if first_background.right() < 0 {
+                first_background.set_x(second_background.right());
+            }
+            if second_background.right() < 0 {
+                second_background.set_x(first_background.right());
+            }
 
             walk.platform
                 .bounding_boxes()
@@ -767,7 +787,7 @@ impl Game for WalkTheDog {
             height: 600.0,
         });
         if let WalkTheDog::Loaded(walk) = self {
-            walk.background.draw(renderer);
+            walk.backgrounds.iter().for_each(|b| b.draw(renderer));
             walk.boy.draw(renderer);
             walk.stone.draw(renderer);
             renderer.draw_rect(walk.stone.bounding_box());
