@@ -129,6 +129,7 @@ pub struct Renderer {
     context: CanvasRenderingContext2d,
 }
 
+#[derive(Default)]
 pub struct Rect {
     pub position: Point,
     pub width: i16,
