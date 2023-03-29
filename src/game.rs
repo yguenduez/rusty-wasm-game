@@ -47,7 +47,7 @@ pub enum WalkTheDog {
 pub struct Walk {
     boy: RedHatBoy,
     backgrounds: [Image; 2],
-    stone: Image,
+    obstacles: Vec<Box<dyn Obstacle>>,
     platform: Box<dyn Obstacle>,
 }
 
@@ -60,6 +60,32 @@ impl Walk {
 impl WalkTheDog {
     pub fn new() -> Self {
         WalkTheDog::Loading
+    }
+}
+
+pub struct Barrier {
+    image: Image,
+}
+
+impl Barrier {
+    pub fn new(image: Image) -> Self {
+        Barrier { image }
+    }
+}
+
+impl Obstacle for Barrier {
+    fn check_intersection(&self, boy: &mut RedHatBoy) {
+        if boy.bounding_box().intersects(self.image.bounding_box()) {
+            boy.knock_out()
+        }
+    }
+
+    fn draw(&self, renderer: &Renderer) {
+        self.image.draw(renderer);
+    }
+
+    fn move_horizontally(&mut self, x: i16) {
+        self.image.move_horizontally(x)
     }
 }
 
@@ -312,16 +338,14 @@ struct Platform {
     position: Point,
 }
 
-impl Obstacle for Platform{
+impl Obstacle for Platform {
     fn check_intersection(&self, boy: &mut RedHatBoy) {
         if let Some(box_to_land_on) = self
             .bounding_boxes()
             .iter()
-            .find(|&bounding_box| boy.bounding_box()
-                .intersects(bounding_box))
+            .find(|&bounding_box| boy.bounding_box().intersects(bounding_box))
         {
-            if boy.velocity_y() > 0 && boy.pos_y() <
-                self.position.y {
+            if boy.velocity_y() > 0 && boy.pos_y() < self.position.y {
                 boy.land_on(box_to_land_on.y());
             } else {
                 boy.knock_out();
@@ -736,7 +760,10 @@ impl Game for WalkTheDog {
                             },
                         ),
                     ],
-                    stone: Image::new(stone, Point { x: 150, y: 546 }),
+                    obstacles: vec![Box::new(Barrier::new(Image::new(
+                        stone,
+                        Point { x: 150, y: 546 },
+                    )))],
                     platform: Box::new(platform),
                 })))
             }
@@ -766,7 +793,6 @@ impl Game for WalkTheDog {
             walk.boy.update();
 
             walk.platform.move_horizontally(walk.velocity());
-            walk.stone.move_horizontally(walk.velocity());
 
             let velocity = walk.velocity();
             let [first_background, second_background] = &mut walk.backgrounds;
@@ -778,16 +804,12 @@ impl Game for WalkTheDog {
             if second_background.right() < 0 {
                 second_background.set_x(first_background.right());
             }
-
             walk.platform.check_intersection(&mut walk.boy);
 
-            if walk
-                .boy
-                .destination_box()
-                .intersects(walk.stone.bounding_box())
-            {
-                walk.boy.knock_out();
-            }
+            walk.obstacles.iter_mut().for_each(|obstacle| {
+                obstacle.move_horizontally(velocity);
+                obstacle.check_intersection(&mut walk.boy)
+            });
         }
     }
 
@@ -796,9 +818,10 @@ impl Game for WalkTheDog {
         if let WalkTheDog::Loaded(walk) = self {
             walk.backgrounds.iter().for_each(|b| b.draw(renderer));
             walk.boy.draw(renderer);
-            walk.stone.draw(renderer);
-            renderer.draw_rect(walk.stone.bounding_box());
             walk.platform.draw(renderer);
+            walk.obstacles
+                .iter()
+                .for_each(|obstacle| obstacle.draw(renderer))
         }
     }
 }
