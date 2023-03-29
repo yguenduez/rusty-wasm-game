@@ -1,8 +1,9 @@
-use crate::engine::{Game, Image, Rect, Renderer};
+use crate::engine::{Game, Image, Rect, Renderer, SpriteSheet};
 use crate::{browser, engine};
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use std::collections::HashMap;
+use std::rc::Rc;
 use web_sys::HtmlImageElement;
 
 use crate::game::red_hat_boy_states::{
@@ -14,7 +15,7 @@ use serde::Deserialize;
 const HEIGHT: i16 = 600;
 
 #[derive(Deserialize, Clone)]
-struct SheetRect {
+pub struct SheetRect {
     x: i16,
     y: i16,
     w: i16,
@@ -23,14 +24,14 @@ struct SheetRect {
 
 #[derive(Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
-struct Cell {
+pub struct Cell {
     frame: SheetRect,
     pub sprite_source_size: SheetRect,
 }
 
 #[derive(Deserialize, Clone)]
 pub struct Sheet {
-    frames: HashMap<String, Cell>,
+    pub(crate) frames: HashMap<String, Cell>,
 }
 
 #[derive(Clone, Copy, Default)]
@@ -47,6 +48,7 @@ pub enum WalkTheDog {
 pub struct Walk {
     boy: RedHatBoy,
     backgrounds: [Image; 2],
+    obstacle_sheet: Rc<SpriteSheet>,
     obstacles: Vec<Box<dyn Obstacle>>,
     platform: Box<dyn Obstacle>,
 }
@@ -337,8 +339,7 @@ impl From<FallingState> for RedHatBoyStateMachine {
 }
 
 struct Platform {
-    sheet: Sheet,
-    image: HtmlImageElement,
+    sheet: Rc<SpriteSheet>,
     position: Point,
 }
 
@@ -358,13 +359,9 @@ impl Obstacle for Platform {
     }
 
     fn draw(&self, renderer: &Renderer) {
-        let platform = self
-            .sheet
-            .frames
-            .get("13.png")
-            .expect("13.png does not exist");
-        renderer.draw_image(
-            &self.image,
+        let platform = self.sheet.cell("13.png").expect("13.png does not exist");
+        self.sheet.draw(
+            renderer,
             &Rect::new_from_x_y(
                 platform.frame.x.into(),
                 platform.frame.y.into(),
@@ -388,20 +385,12 @@ impl Obstacle for Platform {
 }
 
 impl Platform {
-    fn new(sheet: Sheet, image: HtmlImageElement, position: Point) -> Self {
-        Platform {
-            sheet,
-            image,
-            position,
-        }
+    pub fn new(sheet: Rc<SpriteSheet>, position: Point) -> Self {
+        Platform { sheet, position }
     }
 
     fn destination_box(&self) -> Rect {
-        let platform = self
-            .sheet
-            .frames
-            .get("13.png")
-            .expect("13.png does not exist");
+        let platform = self.sheet.cell("13.png").expect("13.png does not exist");
         Rect::new_from_x_y(
             self.position.x.into(),
             self.position.y.into(),
@@ -750,10 +739,13 @@ impl Game for WalkTheDog {
                 let rhb = RedHatBoy::new(json.into_serde()?, engine::load_image("rhb.png").await?);
                 let background = engine::load_image("BG.png").await?;
                 let stone = engine::load_image("Stone.png").await?;
-                let platform_sheet = browser::fetch_json("tiles.json").await?;
-                let platform = Platform::new(
-                    platform_sheet.into_serde::<Sheet>()?,
+                let tiles = browser::fetch_json("tiles.json").await?;
+                let sprite_sheet = Rc::new(SpriteSheet::new(
+                    tiles.into_serde::<Sheet>()?,
                     engine::load_image("tiles.png").await?,
+                ));
+                let platform = Platform::new(
+                    sprite_sheet.clone(),
                     Point {
                         x: FIRST_PLATFORM,
                         y: HIGH_PLATFORM,
@@ -772,6 +764,7 @@ impl Game for WalkTheDog {
                             },
                         ),
                     ],
+                    obstacle_sheet: sprite_sheet,
                     obstacles: vec![Box::new(Barrier::new(Image::new(
                         stone,
                         Point { x: 150, y: 546 },

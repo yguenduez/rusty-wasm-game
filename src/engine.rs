@@ -8,7 +8,7 @@ use std::sync::Mutex;
 use web_sys::{CanvasRenderingContext2d, HtmlImageElement};
 
 use crate::browser::LoopClosure;
-use crate::game::Point;
+use crate::game::{Cell, Point, Sheet};
 use anyhow::{anyhow, Result};
 use futures::channel::mpsc::{unbounded, UnboundedReceiver};
 use wasm_bindgen::closure::Closure;
@@ -73,6 +73,25 @@ pub async fn load_image(source: &str) -> Result<HtmlImageElement> {
     image.set_src(source);
     complete_rx.await??;
     Ok(image)
+}
+
+pub struct SpriteSheet {
+    sheet: Sheet,
+    image: HtmlImageElement,
+}
+
+impl SpriteSheet {
+    pub fn new(sheet: Sheet, image: HtmlImageElement) -> Self {
+        SpriteSheet { sheet, image }
+    }
+
+    pub fn cell(&self, name: &str) -> Option<&Cell> {
+        self.sheet.frames.get(name)
+    }
+
+    pub fn draw(&self, renderer: &Renderer, source: &Rect, destination: &Rect) {
+        renderer.draw_image(&self.image, source, destination);
+    }
 }
 
 #[async_trait(?Send)]
