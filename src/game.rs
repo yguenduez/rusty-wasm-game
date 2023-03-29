@@ -10,6 +10,7 @@ use crate::game::red_hat_boy_states::{
     Falling, FallingState, Idle, Jumping, JumpingEndState, KnockedOut, RedHatBoyContext,
     RedHatBoyState, Running, Sliding, SlidingEndState,
 };
+use crate::segment::stone_and_platform;
 use serde::Deserialize;
 
 const HEIGHT: i16 = 600;
@@ -51,6 +52,7 @@ pub struct Walk {
     obstacle_sheet: Rc<SpriteSheet>,
     obstacles: Vec<Box<dyn Obstacle>>,
     platform: Box<dyn Obstacle>,
+    timeline: i16,
 }
 
 impl Walk {
@@ -338,11 +340,19 @@ impl From<FallingState> for RedHatBoyStateMachine {
     }
 }
 
-struct Platform {
+fn rightmost(obstacle_list: &Vec<Box<dyn Obstacle>>) -> i16 {
+    obstacle_list
+        .iter()
+        .map(|obstacle| obstacle.right())
+        .max_by(|x, y| x.cmp(&y))
+        .unwrap_or(0)
+}
+
+pub struct Platform {
     sheet: Rc<SpriteSheet>,
-    bounding_boxes: Vec<Rect>,
     sprites: Vec<Cell>,
     position: Point,
+    bounding_boxes: Vec<Rect>,
 }
 
 impl Obstacle for Platform {
@@ -735,8 +745,9 @@ mod red_hat_boy_states {
     pub struct KnockedOut;
 }
 
-const HIGH_PLATFORM: i16 = 375;
-const FIRST_PLATFORM: i16 = 370;
+pub const HIGH_PLATFORM: i16 = 375;
+pub const LOW_PLATFORM: i16 = 420;
+pub const FIRST_PLATFORM: i16 = 370;
 
 #[async_trait(? Send)]
 impl Game for WalkTheDog {
@@ -766,6 +777,8 @@ impl Game for WalkTheDog {
                     ],
                 );
                 let background_width = background.width();
+                let starting_obstacles = stone_and_platform(stone.clone(), sprite_sheet.clone(), 0);
+                let timeline = rightmost(&starting_obstacles);
                 Ok(Box::new(WalkTheDog::Loaded(Walk {
                     boy: rhb,
                     backgrounds: [
@@ -779,11 +792,9 @@ impl Game for WalkTheDog {
                         ),
                     ],
                     obstacle_sheet: sprite_sheet,
-                    obstacles: vec![Box::new(Barrier::new(Image::new(
-                        stone,
-                        Point { x: 150, y: 546 },
-                    )))],
+                    obstacles: starting_obstacles,
                     platform: Box::new(platform),
+                    timeline,
                 })))
             }
             WalkTheDog::Loaded(_) => Err(anyhow!("Error: Game is already initialized!")),
