@@ -48,7 +48,7 @@ pub struct Walk {
     boy: RedHatBoy,
     backgrounds: [Image; 2],
     stone: Image,
-    platform: Platform,
+    platform: Box<dyn Obstacle>,
 }
 
 impl Walk {
@@ -312,31 +312,52 @@ struct Platform {
     position: Point,
 }
 
+impl Obstacle for Platform{
+    fn check_intersection(&self, boy: &mut RedHatBoy) {
+        if let Some(box_to_land_on) = self
+            .bounding_boxes()
+            .iter()
+            .find(|&bounding_box| boy.bounding_box()
+                .intersects(bounding_box))
+        {
+            if boy.velocity_y() > 0 && boy.pos_y() <
+                self.position.y {
+                boy.land_on(box_to_land_on.y());
+            } else {
+                boy.knock_out();
+            }
+        }
+    }
+
+    fn draw(&self, renderer: &Renderer) {
+        let platform = self
+            .sheet
+            .frames
+            .get("13.png")
+            .expect("13.png does not exist");
+        renderer.draw_image(
+            &self.image,
+            &Rect::new_from_x_y(
+                platform.frame.x.into(),
+                platform.frame.y.into(),
+                (platform.frame.w * 3).into(),
+                platform.frame.h.into(),
+            ),
+            &self.destination_box(),
+        )
+    }
+
+    fn move_horizontally(&mut self, x: i16) {
+        self.position.x += x;
+    }
+}
+
 impl Platform {
     fn new(sheet: Sheet, image: HtmlImageElement, position: Point) -> Self {
         Platform {
             sheet,
             image,
             position,
-        }
-    }
-    fn draw(&self, renderer: &Renderer) {
-        {
-            let platform = self
-                .sheet
-                .frames
-                .get("13.png")
-                .expect("13.png does not exist");
-            renderer.draw_image(
-                &self.image,
-                &Rect::new_from_x_y(
-                    platform.frame.x.into(),
-                    platform.frame.y.into(),
-                    (platform.frame.w * 3).into(),
-                    platform.frame.h.into(),
-                ),
-                &self.destination_box(),
-            )
         }
     }
 
@@ -716,7 +737,7 @@ impl Game for WalkTheDog {
                         ),
                     ],
                     stone: Image::new(stone, Point { x: 150, y: 546 }),
-                    platform,
+                    platform: Box::new(platform),
                 })))
             }
             WalkTheDog::Loaded(_) => Err(anyhow!("Error: Game is already initialized!")),
@@ -744,7 +765,7 @@ impl Game for WalkTheDog {
             }
             walk.boy.update();
 
-            walk.platform.position.x += walk.velocity();
+            walk.platform.move_horizontally(walk.velocity());
             walk.stone.move_horizontally(walk.velocity());
 
             let velocity = walk.velocity();
@@ -758,20 +779,7 @@ impl Game for WalkTheDog {
                 second_background.set_x(first_background.right());
             }
 
-            walk.platform
-                .bounding_boxes()
-                .iter()
-                .for_each(|bounding_box| {
-                    if walk.boy.bounding_box().intersects(bounding_box) {
-                        let is_descensing_and_hitting_from_above = walk.boy.velocity_y() > 0
-                            && walk.boy.pos_y() < walk.platform.position.y;
-                        if is_descensing_and_hitting_from_above {
-                            walk.boy.land_on(bounding_box.y());
-                        } else {
-                            walk.boy.knock_out();
-                        }
-                    }
-                });
+            walk.platform.check_intersection(&mut walk.boy);
 
             if walk
                 .boy
@@ -791,10 +799,6 @@ impl Game for WalkTheDog {
             walk.stone.draw(renderer);
             renderer.draw_rect(walk.stone.bounding_box());
             walk.platform.draw(renderer);
-            walk.platform
-                .bounding_boxes()
-                .iter()
-                .for_each(|bb| renderer.draw_rect(bb));
         }
     }
 }
