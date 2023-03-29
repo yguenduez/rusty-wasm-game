@@ -14,6 +14,8 @@ use crate::segment::stone_and_platform;
 use serde::Deserialize;
 
 const HEIGHT: i16 = 600;
+const TIMELINE_MINIMUM: i16 = 1000;
+const OBSTACLE_BUFFER: i16 = 20;
 
 #[derive(Deserialize, Clone)]
 pub struct SheetRect {
@@ -51,7 +53,7 @@ pub struct Walk {
     backgrounds: [Image; 2],
     obstacle_sheet: Rc<SpriteSheet>,
     obstacles: Vec<Box<dyn Obstacle>>,
-    platform: Box<dyn Obstacle>,
+    stone: HtmlImageElement,
     timeline: i16,
 }
 
@@ -763,19 +765,6 @@ impl Game for WalkTheDog {
                     tiles.into_serde::<Sheet>()?,
                     engine::load_image("tiles.png").await?,
                 ));
-                let platform = Platform::new(
-                    sprite_sheet.clone(),
-                    Point {
-                        x: FIRST_PLATFORM,
-                        y: HIGH_PLATFORM,
-                    },
-                    &["13.png", "14.png", "15.png"],
-                    &[
-                        Rect::new_from_x_y(0, 0, 60, 54),
-                        Rect::new_from_x_y(60, 0, 384 - (60 * 2), 93),
-                        Rect::new_from_x_y(384 - 60, 0, 60, 54),
-                    ],
-                );
                 let background_width = background.width();
                 let starting_obstacles = stone_and_platform(stone.clone(), sprite_sheet.clone(), 0);
                 let timeline = rightmost(&starting_obstacles);
@@ -793,7 +782,7 @@ impl Game for WalkTheDog {
                     ],
                     obstacle_sheet: sprite_sheet,
                     obstacles: starting_obstacles,
-                    platform: Box::new(platform),
+                    stone: stone.clone(),
                     timeline,
                 })))
             }
@@ -822,8 +811,6 @@ impl Game for WalkTheDog {
             }
             walk.boy.update();
 
-            walk.platform.move_horizontally(walk.velocity());
-
             let velocity = walk.velocity();
             let [first_background, second_background] = &mut walk.backgrounds;
             first_background.move_horizontally(velocity);
@@ -834,13 +821,25 @@ impl Game for WalkTheDog {
             if second_background.right() < 0 {
                 second_background.set_x(first_background.right());
             }
-            walk.platform.check_intersection(&mut walk.boy);
 
             walk.obstacles.retain(|obstacle| obstacle.right() > 0);
             walk.obstacles.iter_mut().for_each(|obstacle| {
                 obstacle.move_horizontally(velocity);
                 obstacle.check_intersection(&mut walk.boy)
             });
+
+            // Generate new obstacles
+            if walk.timeline < TIMELINE_MINIMUM {
+                let mut next_obstacles = stone_and_platform(
+                    walk.stone.clone(),
+                    walk.obstacle_sheet.clone(),
+                    walk.timeline + OBSTACLE_BUFFER,
+                );
+                walk.timeline = rightmost(&next_obstacles);
+                walk.obstacles.append(&mut next_obstacles);
+            } else {
+                walk.timeline += velocity;
+            }
         }
     }
 
@@ -849,7 +848,6 @@ impl Game for WalkTheDog {
         if let WalkTheDog::Loaded(walk) = self {
             walk.backgrounds.iter().for_each(|b| b.draw(renderer));
             walk.boy.draw(renderer);
-            walk.platform.draw(renderer);
             walk.obstacles
                 .iter()
                 .for_each(|obstacle| obstacle.draw(renderer))
