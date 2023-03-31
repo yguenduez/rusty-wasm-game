@@ -8,7 +8,7 @@ Following the tutorial. TL;DR:
   - Install nvm: `curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.3/install.sh | bash`
   - Install v16: `nvm install 16`
 - Rust: [see here](https://www.rust-lang.org/tools/install)
-- wasm-pack: `curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh`
+- wasm-pack: `cargo install wasm-pack`
 
 Rust webpack template
 ```bash
