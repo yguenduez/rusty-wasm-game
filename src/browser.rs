@@ -1,4 +1,5 @@
 use anyhow::{anyhow, Result};
+use js_sys::ArrayBuffer;
 use std::future::Future;
 use wasm_bindgen::closure::{Closure, WasmClosure, WasmClosureFnOnce};
 use wasm_bindgen::{JsCast, JsValue};
@@ -72,33 +73,36 @@ pub async fn fetch_with_str(resource: &str) -> Result<JsValue> {
         .map_err(|err| anyhow!("error fetching {:#?}", err))
 }
 pub async fn fetch_json(json_path: &str) -> Result<JsValue> {
-    let resp_value = fetch_with_str(json_path).await?;
-    let resp: Response = resp_value.dyn_into().map_err(|element| {
-        anyhow!(
-            "Error converting {:#?}
-to Response",
-            element
-        )
-    })?;
-    JsFuture::from(resp.json().map_err(|err| {
-        anyhow!(
-            "Could not get JSON from
-response {:#?}",
-            err
-        )
-    })?)
+    let resp = fetch_response(json_path).await?;
+    JsFuture::from(
+        resp.json()
+            .map_err(|err| anyhow!("Could not get JSON from response {:#?}", err))?,
+    )
     .await
     .map_err(|err| anyhow!("error fetching JSON {:#?}", err))
 }
 
+pub async fn fetch_array_buffer(ressource: &str) -> Result<ArrayBuffer> {
+    let array_buffer = fetch_response(ressource)
+        .await?
+        .array_buffer()
+        .map_err(|err| anyhow!("Error loading array buffer {:#?}", err))?;
+    JsFuture::from(array_buffer)
+        .await
+        .map_err(|err| anyhow!("Error loading array buffer {:#?}", err))?
+        .dyn_into()
+        .map_err(|err| anyhow!("Error converting raw JSValue to ArrayBuffer {:#?}", err))
+}
+
+pub async fn fetch_response(resource: &str) -> Result<Response> {
+    fetch_with_str(resource)
+        .await?
+        .dyn_into()
+        .map_err(|err| anyhow!("error converting fetch to Response {:#?}", err))
+}
+
 pub fn new_image() -> Result<HtmlImageElement> {
-    HtmlImageElement::new().map_err(|err| {
-        anyhow!(
-            "Could
-not create HtmlImageElement: {:#?}",
-            err
-        )
-    })
+    HtmlImageElement::new().map_err(|err| anyhow!("Could not create HtmlImageElement: {:#?}", err))
 }
 pub fn closure_once<F, A, R>(fn_once: F) -> Closure<F::FnMut>
 where
