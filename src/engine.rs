@@ -25,6 +25,7 @@ impl Audio {
             context: sound::create_audio_context()?,
         })
     }
+
     pub async fn load_sound(&self, filename: &str) -> Result<Sound> {
         let array_buffer = browser::fetch_array_buffer(filename).await?;
         let audio_buffer = sound::decode_audio_data(&self.context, &array_buffer).await?;
