@@ -2,17 +2,13 @@
 mod browser;
 mod engine;
 mod game;
+mod segment;
 
-use rand::prelude::*;
-use std::collections::HashMap;
-use std::rc::Rc;
-use std::sync::Mutex;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 
 use crate::engine::GameLoop;
 use crate::game::WalkTheDog;
-use serde::Deserialize;
 
 async fn fetch_json(json_path: &str) -> Result<JsValue, JsValue> {
     let window = web_sys::window().unwrap();
