@@ -187,15 +187,15 @@ impl WalkTheDogState<Walking> {
 
     fn end_game(self) -> WalkTheDogState<GameOver> {
         let receiver = browser::draw_ui("<button id='new_game'>New Game</button>")
-            .and_then(|_unit| browser::find_html_element_by_id("new game"))
+            .and_then(|_unit| browser::find_html_element_by_id("new_game"))
             .map(|element| engine::add_click_handler(element))
-            .unwrap();
+            .expect("could not build receiver!");
 
         WalkTheDogState {
             _state: GameOver {
                 new_game_event: receiver,
             },
-            walk: Walk::reset(self.walk),
+            walk: self.walk,
         }
     }
 }
