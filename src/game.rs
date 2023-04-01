@@ -218,7 +218,7 @@ impl WalkTheDogState<GameOver> {
         browser::hide_ui();
         WalkTheDogState {
             _state: Ready,
-            walk: self.walk,
+            walk: Walk::reset(self.walk),
         }
     }
 }
