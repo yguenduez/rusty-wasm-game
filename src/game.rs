@@ -2,6 +2,7 @@ use crate::engine::{Audio, Game, Image, KeyState, Rect, Renderer, Sound, SpriteS
 use crate::{browser, engine};
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
+use futures::channel::mpsc::UnboundedReceiver;
 use rand::{thread_rng, Rng};
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -89,7 +90,15 @@ impl<T> WalkTheDogState<T> {
 
 struct Ready;
 struct Walking;
-struct GameOver;
+struct GameOver {
+    new_game_event: UnboundedReceiver<()>,
+}
+
+impl GameOver {
+    fn new_game_pressed(&mut self) -> bool {
+        matches!(self.new_game_event.try_next(), Ok(Some(())))
+    }
+}
 
 enum ReadyEndState {
     Complete(WalkTheDogState<Walking>),
@@ -125,8 +134,13 @@ impl WalkTheDogState<Ready> {
     }
 }
 
+enum WalkingEndState {
+    Complete(WalkTheDogState<GameOver>),
+    Continue(WalkTheDogState<Walking>),
+}
+
 impl WalkTheDogState<Walking> {
-    fn update(mut self, keystate: &KeyState) -> WalkTheDogState<Walking> {
+    fn update(mut self, keystate: &KeyState) -> WalkingEndState {
         let mut velocity = Point { x: 0, y: 0 };
         if keystate.is_pressed("ArrowDown") {
             self.walk.boy.slide();
@@ -164,13 +178,48 @@ impl WalkTheDogState<Walking> {
             self.walk.timeline += velocity;
         }
 
-        self
+        if self.walk.knocked_out() {
+            WalkingEndState::Complete(self.end_game())
+        } else {
+            WalkingEndState::Continue(self)
+        }
+    }
+
+    fn end_game(self) -> WalkTheDogState<GameOver> {
+        let receiver = browser::draw_ui("<button id='new_game'>New Game</button>")
+            .and_then(|_unit| browser::find_html_element_by_id("new game"))
+            .map(|element| engine::add_click_handler(element))
+            .unwrap();
+
+        WalkTheDogState {
+            _state: GameOver {
+                new_game_event: receiver,
+            },
+            walk: self.walk,
+        }
     }
 }
 
+enum GameOverEndState {
+    Complete(WalkTheDogState<Ready>),
+    Continue(WalkTheDogState<GameOver>),
+}
+
 impl WalkTheDogState<GameOver> {
-    fn update(self) -> WalkTheDogState<GameOver> {
-        self
+    fn update(mut self) -> GameOverEndState {
+        if self._state.new_game_pressed() {
+            GameOverEndState::Complete(self.new_game())
+        } else {
+            GameOverEndState::Continue(self)
+        }
+    }
+
+    fn new_game(self) -> WalkTheDogState<Ready> {
+        browser::hide_ui();
+        WalkTheDogState {
+            _state: Ready,
+            walk: self.walk,
+        }
     }
 }
 
@@ -197,6 +246,24 @@ impl From<ReadyEndState> for WalkTheDogStateMachine {
         match state {
             ReadyEndState::Complete(walking) => walking.into(),
             ReadyEndState::Continue(ready) => ready.into(),
+        }
+    }
+}
+
+impl From<WalkingEndState> for WalkTheDogStateMachine {
+    fn from(state: WalkingEndState) -> Self {
+        match state {
+            WalkingEndState::Complete(game_over_state) => game_over_state.into(),
+            WalkingEndState::Continue(walking_state) => walking_state.into(),
+        }
+    }
+}
+
+impl From<GameOverEndState> for WalkTheDogStateMachine {
+    fn from(s: GameOverEndState) -> Self {
+        match s {
+            GameOverEndState::Complete(new_game_state) => new_game_state.into(),
+            GameOverEndState::Continue(game_over_state) => game_over_state.into(),
         }
     }
 }
@@ -236,6 +303,10 @@ impl Walk {
             .for_each(|background| background.draw(renderer));
         self.boy.draw(renderer);
         self.obstacles.iter().for_each(|obj| obj.draw(renderer));
+    }
+
+    fn knocked_out(&self) -> bool {
+        self.boy.knocked_out()
     }
 }
 
@@ -373,6 +444,10 @@ impl RedHatBoy {
     fn land_on(&mut self, y: i16) {
         self.state_machine = self.state_machine.clone().transition(Event::Land(y));
     }
+
+    fn knocked_out(&self) -> bool {
+        self.state_machine.knocked_out()
+    }
 }
 
 #[derive(Clone)]
@@ -452,6 +527,10 @@ impl RedHatBoyStateMachine {
 
     fn update(self) -> Self {
         self.transition(Event::Update)
+    }
+
+    fn knocked_out(&self) -> bool {
+        matches!(self, RedHatBoyStateMachine::KnockedOut(_))
     }
 }
 
